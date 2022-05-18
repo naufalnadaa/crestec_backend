@@ -8,6 +8,10 @@ router.get('/', function(req, res, next) {
 });
 
 router.post('/', cUsers.create)
+router.post('/user/login', cUsers.login)
+router.post('/user/reset-password', cUsers.forget)
 router.get('/user/verify/:username/:token', cUsers.verifyEmail)
+router.get('/user/reset/:username/:email', cUsers.verifyForget)
+router.put('/user/update-password', cUsers.resetPassword)
 
 module.exports = router;

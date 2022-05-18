@@ -85,112 +85,115 @@ exports.verifyEmail = async (req, res) => {
     }
 }
 
-// Retrieve all Tutorials from the database.
-exports.findAll = (req, res) => {
-    const title = req.query.title;
-    var condition = title ? { title: { [Op.like]: `%${title}%` } } : null;
-    Tutorial.findAll({ where: condition })
-        .then(data => {
-            res.send(data);
-        })
-        .catch(err => {
-            res.status(500).send({
-                message:
-                    err.message || "Some error occurred while retrieving tutorials."
-            });
-        });
-};
-// Find a single Tutorial with an id
-exports.findOne = (req, res) => {
-    const id = req.params.id;
-    Tutorial.findByPk(id)
-        .then(data => {
-            if (data) {
-                res.send(data);
-            } else {
-                res.status(404).send({
-                    message: `Cannot find Tutorial with id=${id}.`
-                });
+exports.login = async (req, res) => {
+    const user = await tUsers.findOne({
+        where: {
+            username: { [Op.eq]: req.body.username },
+            email_verified: { [Op.eq]: 1 },
+            deleted: { [Op.eq]: 0 }
+        }
+    })
+
+    if (!user) {
+        return res.status(404).send({ message: "User not found!" })
+    }
+
+    const isPassword = bcrypt.compare(req.body.password, user.password)
+    if (!isPassword) {
+        return res.status(404).send({ message: "Invalid Password" })
+    } else {
+        return res.status(200).send({ message: "Valid Password" })
+    }
+}
+
+exports.forget = async (req, res) => {
+    try {
+        const result = await tUsers.findOne({
+            where: {
+                email: { [Op.eq]: req.body.email },
+                email_verified: { [Op.eq]: 1 },
+                deleted: { [Op.eq]: 0 }
             }
         })
-        .catch(err => {
-            res.status(500).send({
-                message: "Error retrieving Tutorial with id=" + id
-            });
-        });
-};
-// Update a Tutorial by the id in the request
-exports.update = (req, res) => {
-    const id = req.params.id;
-    Tutorial.update(req.body, {
-        where: { id: id }
-    })
-        .then(num => {
-            if (num == 1) {
-                res.send({
-                    message: "Tutorial was updated successfully."
-                });
-            } else {
-                res.send({
-                    message: `Cannot update Tutorial with id=${id}. Maybe Tutorial was not found or req.body is empty!`
-                });
+
+        if (!result) {
+            return res.status(400).send({ message: "Email not found!" })
+        }
+
+        const messages = `${process.env.BASE_URL}/user/reset/${result.username}/${result.email}`
+        const html_email =
+            `
+            <div style="background-color:#C5E6E2; padding-top:20px;padding-bottom:20px">
+                <h2 style="text-align:center">Job Request Assistant</h2>
+                <div style="width:400px; height:400px; background-color:white; padding:20px; display:block; margin-left:auto; margin-right:auto;">
+                    <h2>Halo!</h2>
+                    <p style="font-size:14px">
+                        Anda menerima email ini karena kami telah menerima
+                        permintaan pemulihan kata sandi pada akun Anda. 
+                    </p>
+                    <button style="display:block; margin-left:auto; margin-right:auto; width:200px; height:50px; background-color:#494B4A; border-radius:10px"><a href=${messages} style="text-decoration:none; color:white; font-size:14px;">Klik Disini Untuk Ubah Kata Sandi</a></button>
+                    <h5 style="font-size:14px">Salam,<br/>Admin Job Request Assistant</h5>
+                </div>
+            </div>
+        `
+
+        if (result) {
+            res.send(result)
+            await sendMail(result.email, "Verify Email", html_email)
+            res.send("An Email sent to your account please verify")
+        }
+    } catch (error) {
+        res.send(error)
+    }
+}
+
+exports.verifyForget = async (req, res) => {
+    try {
+        const user = await tUsers.findOne({
+            where: {
+                username: { [Op.eq]: req.params.username },
+                email: { [Op.eq]: req.params.email },
+                deleted: { [Op.eq]: 0 }
             }
         })
-        .catch(err => {
-            res.status(500).send({
-                message: "Error updating Tutorial with id=" + id
-            });
-        });
-};
-// Delete a Tutorial with the specified id in the request
-exports.delete = (req, res) => {
-    const id = req.params.id;
-    Tutorial.destroy({
-        where: { id: id }
-    })
-        .then(num => {
-            if (num == 1) {
-                res.send({
-                    message: "Tutorial was deleted successfully!"
-                });
-            } else {
-                res.send({
-                    message: `Cannot delete Tutorial with id=${id}. Maybe Tutorial was not found!`
-                });
+        if (!user) {
+            return res.status(400).send("<h1>(404) Error Not Found!</h1>")
+        }
+
+        let link = `http://localhost:3000/reset-password?email=${user.email}`
+
+        res.status(200).render('reset_success', { link: link })
+    } catch (error) {
+        res.status(400).send({ message: "An error occured", error })
+    }
+}
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const user = await tUsers.findOne({
+            where: {
+                email: { [Op.eq]: req.query.email },
+                deleted: { [Op.eq]: 0 }
             }
         })
-        .catch(err => {
-            res.status(500).send({
-                message: "Could not delete Tutorial with id=" + id
-            });
-        });
-};
-// Delete all Tutorials from the database.
-exports.deleteAll = (req, res) => {
-    Tutorial.destroy({
-        where: {},
-        truncate: false
-    })
-        .then(nums => {
-            res.send({ message: `${nums} Tutorials were deleted successfully!` });
-        })
-        .catch(err => {
-            res.status(500).send({
-                message:
-                    err.message || "Some error occurred while removing all tutorials."
-            });
-        });
-};
-// Find all published Tutorials
-exports.findAllPublished = (req, res) => {
-    Tutorial.findAll({ where: { published: true } })
-        .then(data => {
-            res.send(data);
-        })
-        .catch(err => {
-            res.status(500).send({
-                message:
-                    err.message || "Some error occurred while retrieving tutorials."
-            });
-        });
-};
+        if (!user) {
+            return res.status(400).send("<h1>(404) Error Not Found!</h1>")
+        }
+        const dataUpdate = {
+            password: bcrypt.hashSync(req.body.password, 8)
+        }
+        const whereClause = {
+            where: {
+                email: { [Op.eq]: req.query.email },
+                deleted: { [Op.eq]: 0 }
+            }
+        }
+        const result = await tUsers.update(dataUpdate, whereClause)
+        if (!result) {
+            return res.status(404).send("<h1>(404) Update Failed!</h1>")
+        }
+        return res.status(200).send(result)
+    } catch (error) {
+        return res.status(400).send({ message: "An error occured", error })
+    }
+}
