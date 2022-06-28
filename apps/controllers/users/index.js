@@ -14,10 +14,10 @@ exports.create = async (req, res) => {
         return;
     }
 
-    let user = await tUsers.findOne({ email: req.body.email })
-    if (user.email == req.body.email) {
-        return res.status(400).send("Email already exist!")
-    }
+        // let user = await tUsers.findOne({ email: req.body.email })
+        // if (user.email == req.body.email) {
+        //     return res.status(400).send("Email already exist!")
+        // }
 
     const dataCreate = {
         name: req.body.name,
@@ -85,11 +85,25 @@ exports.verifyEmail = async (req, res) => {
     }
 }
 
+exports.login = (req,res) => {
+    tUsers.findOne({
+        where: 
+        {email: {[Op.eq]: req.body.email}, deleted: {[Op.eq]: 0}}
+    }).then(data => {
+        if(data){
+            
+        }
+    }).catch(err => {
+        res.status(500).send({
+            message: err.message || "Some error while login"
+        })
+    })
+
+}
+
 // Retrieve all Tutorials from the database.
 exports.findAll = (req, res) => {
-    const title = req.query.title;
-    var condition = title ? { title: { [Op.like]: `%${title}%` } } : null;
-    Tutorial.findAll({ where: condition })
+    tUsers.findAll({ where: {deleted: {[Op.eq]: 0}} })
         .then(data => {
             res.send(data);
         })
