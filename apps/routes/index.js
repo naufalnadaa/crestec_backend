@@ -7,7 +7,7 @@ router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
 });
 
-router.post('/', cUsers.create)
+router.post('/user/create', cUsers.create)
 router.post('/user/login', cUsers.login)
 router.post('/user/reset-password', cUsers.forget)
 router.get('/user/verify/:username/:token', cUsers.verifyEmail)
